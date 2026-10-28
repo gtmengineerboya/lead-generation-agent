@@ -1,0 +1,686 @@
+{
+  "name": "Lead generation agent",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Lead Machine",
+        "formDescription": "Provide the Info Below",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Business Type",
+              "placeholder": "e.g. Plumber",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Location",
+              "placeholder": "e.g. Rome, Italy",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Lead Number",
+              "fieldType": "number",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email Style",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Friendly"
+                  },
+                  {
+                    "option": "Professional"
+                  },
+                  {
+                    "option": "Simple"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false,
+          "buttonLabel": "GO 🚀"
+        }
+      },
+      "id": "49a75edf-736f-4054-aea8-8a24c159f27b",
+      "name": "On form submission",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        432,
+        336
+      ],
+      "webhookId": "2ef0c938-f117-4f6c-840a-b2dc35a615b3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/YOUR_ACTOR_ID/run-sync-get-dataset-items?token=YOUR_APIFY_TOKEN", 
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"includeWebResults\": false,\n    \"language\": \"en\",\n    \"locationQuery\": \"{{ $json.Location }}\",\n    \"maxCrawledPlacesPerSearch\": {{ $json['Lead Number'] }},\n    \"maxImages\": 0,\n    \"maximumLeadsEnrichmentRecords\": 0,\n    \"scrapeContacts\": true,\n    \"scrapeDirectories\": false,\n    \"scrapeImageAuthors\": false,\n    \"scrapePlaceDetailPage\": false,\n    \"scrapeReviewsPersonalData\": false,\n    \"scrapeTableReservationProvider\": false,\n    \"searchStringsArray\": [\n        \"{{ $json['Business Type'] }}\"\n    ],\n    \"skipClosedPlaces\": false\n}",
+        "options": {}
+      },
+      "id": "2294be1e-b7e7-437a-ba31-322bf4c7065f",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        688,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "0906e21a-0958-433e-b400-8694915ef3c9",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.website }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f1cc441c-8138-4038-a5bf-b243f830d2ea",
+      "name": "Filter",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        944,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.website }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "efaf6f5a-2e98-4ffb-84da-232d7c7af7ea",
+      "name": "Fetch Website",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        880
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "text": "=Website: {{ $('Loop Over Items').item.json.website }}\n\nPage content (may be truncated):\n{{ String($json.data ?? '').slice(0, 12000) }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "Email Address",
+              "description": "The single best contact email address found in the page content, in a valid format (name@domain.com). Return an empty string if no email address appears in the content. Never invent an address."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "571cd0ce-4578-4e7a-8a92-647ef4662d3b",
+      "name": "Information Extractor",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        304,
+        688
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 25000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.7-flash",
+        "options": {}
+      },
+      "id": "0d5da717-af00-429f-91aa-cf09402341e0",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        400,
+        832
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": null,
+          "name": "Gateway credits",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "0601f2d2-2522-471e-9e11-29498a47e19a",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              },
+              "leftValue": "={{ $json.output?.['Email Address'] ?? '' }}",
+              "rightValue": "@"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0a3d98f3-2446-4491-9e86-f97759765b4a",
+      "name": "If",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "text": "=You write short cold outreach emails for Boya, founder of Crestvora Digital, a lead generation agency. Boya is reaching out on behalf of his client, Naveen RK (naveenrkcreates.com).\n\nABOUT THE CLIENT'S SERVICE\nNaveen RK runs an Instagram content system for coaches, clinics, studios and other service businesses in India. It covers brand positioning, profile optimization, content strategy, weekly script refinement, camera presence coaching, and professional reel editing. Pricing starts at ₹18,000/month for 15 reels, or ₹7,000/month for strategy only. Proof points: Naveen built an informational-content brand from scratch and got 150K views on a single reel with no trends or gimmicks, and has built 80K+ audience across niches.\n\nSCRAPED DATA ABOUT THE LEAD (use only this, never invent details)\nBusiness name: {{ $('Loop Over Items').item.json.title }}\nBusiness type: {{ $('Loop Over Items').item.json.categoryName }}\nAddress: {{ $('Loop Over Items').item.json.address }}\nWebsite: {{ $('Loop Over Items').item.json.website }}\nRequested email tone: {{ $('On form submission').first().json['Email Style'] }}\n\nHOW TO WRITE EACH EMAIL (under 110 words)\n- Subject: under 7 words, specific to the lead's business or niche. No hype, no ALL CAPS.\n- Line 1: a specific, honest opener based ONLY on the data provided (business name, business type, city/area). Example: \"I came across [Business Name] while looking at [business type]s in [area].\" Never claim to have seen their Instagram, posts, reels or followers. Never invent details.\n- Line 2: introduce yourself honestly: \"I'm Boya from Crestvora Digital, and I work with Naveen RK, an Instagram content strategist for service businesses.\"\n- Middle: one sentence on how a content system (strategy, scripts, editing) helps service businesses get found and trusted by the right clients.\n- Proof: one short mention of the 150K-view reel, no exaggeration.\n- CTA: invite them to a free 20-minute strategy call with Naveen: https://cal.com/naveenrkcreates/instagram-strategy-call\n- Tone: friendly, direct, human. No exclamation marks, buzzwords or guarantees. Don't mention prices unless the lead asks.\n- For doctors, lawyers and therapists, make no medical or legal claims. Focus on trust and visibility.\n- Never claim to be Naveen. Never promise results.\n\nSIGN-OFF\nBoya\nCrestvora Digital\n\nFinal line: \"Not relevant? Just reply 'no' and I won't email again.\"\n\nOUTPUT\nReturn only the subject line and the email body, nothing else.",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "Mail Subject",
+              "description": "Eye catchy mail Subject for the cold mail",
+              "required": true
+            },
+            {
+              "name": "Mail Body",
+              "description": "=body message of the mail, a perfect and clear cold mail.",
+              "required": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "db871413-4d1c-4d9f-be82-f5b938baa7b1",
+      "name": "Information Extractor1",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        1104
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 25000
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.7-flash",
+        "options": {}
+      },
+      "id": "81653f52-a4d4-46be-8f20-a13fca28a13a",
+      "name": "Google Gemini Chat Model1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        752,
+        1264
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": null,
+          "name": "Gateway credits",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Information Extractor').item.json.output['Email Address'] }}",
+        "subject": "={{ $('Information Extractor1').item.json.output['Mail Subject'] }}",
+        "emailType": "text",
+        "message": "={{ $('Information Extractor1').item.json.output['Mail Body'] }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "87b79200-12c4-43a9-97c8-72727e73bf11",
+      "name": "Send a message",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1360,
+        1104
+      ],
+      "maxTries": 2,
+      "webhookId": "9910b63d-9aba-42aa-a9de-7dc7f26e3e6a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "AVeHtaY2JQbQDSdI",
+          "name": "Gmail account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1cXwvUBKc0-D9XTUjBUsm755fjJJjMbZR1KwxWS6JALM",
+          "mode": "list",
+          "cachedResultName": "Skin Doctors Chennai Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1cXwvUBKc0-D9XTUjBUsm755fjJJjMbZR1KwxWS6JALM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1cXwvUBKc0-D9XTUjBUsm755fjJJjMbZR1KwxWS6JALM/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Business Name": "={{ $('Loop Over Items').item.json.title }}",
+            "Email": "={{ $('Information Extractor').item.json.output['Email Address'] }}",
+            "Status": "Email Sent",
+            "Send Time": "={{ $now.toFormat(\"MM-dd-yyyy (h:mm a)\") }}",
+            "Phone Number": "={{ $('Loop Over Items').item.json.phone }}",
+            "address": "={{ $('Loop Over Items').item.json.address }}",
+            "website": "={{ $('Loop Over Items').item.json.website }}"
+          },
+          "schema": [
+            {
+              "id": "Business Name",
+              "displayName": "Business Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Send Time",
+              "displayName": "Send Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone Number",
+              "displayName": "Phone Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "address",
+              "displayName": "address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "website",
+              "displayName": "website",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e3f168e5-4330-4ee7-ba4e-52df7d58f120",
+      "name": "Append row in sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1008,
+        672
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "BQKidWoDqmMjALqV",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "id": "f13527f0-7873-4dd7-8c1a-c56d227fa171",
+      "name": "Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        400,
+        1104
+      ],
+      "webhookId": "8e23a55a-4645-4d04-bce7-dde22a32f49d"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "3e2a864f-9077-43a4-8b35-32a64201c03a",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -32,
+        1088
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {},
+      "id": "fd369959-451a-4e86-b988-4e233a5e2904",
+      "name": "No Operation, do nothing",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1008,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "content": "\n\n---\n\n# 🛠 Setup Guide\n\nFollow these steps to get started:\n\n1. **Set up the Lead Machine Form**\n   Customize the form fields (Business Type, Location, Lead Number, Email Style) in the **Form Trigger** node. This is how you collect the target lead criteria.\n\n2. **Plug in your [Apify](https://apify.com/) API endpoint**\n   Replace `Apify_Actor_Endpoint_URL` in the **HTTP Request** node with your own Apify actor URL to scrape business data.\n\n3. **Add your [Google Gemini](https://aistudio.google.com/apikey) credentials**\n   This is used in the **Information Extractor** node to find the best email address from a business website.\n\n4. **Connect your [Google Sheets](https://docs.google.com/spreadsheets/)**\n   Link the sheet in both **Append row** and **Append/Update row** nodes. Make sure your sheet has columns for Company Name, Website, Phone, Email, Address, Category, Cold Mail Status, and Send Time.\n\n5. **Add your [OpenAI](https://platform.openai.com/) API key**\n   This powers the cold email generation in the **Information Extractor1** node for subject & body creation.\n\n6. **Connect your [Gmail](https://mail.google.com/) account**\n   In the **Send a message** node, link your Gmail account to send the cold emails automatically.\n\nOnce all connections are set, your workflow will **collect leads, store them, and send cold emails automatically** 🚀\n\n\nHow it works:\n\nYou type “skin doctor, Chennai” into the form (the On form submission node).\nThe HTTP Request node sends that search to the Apify scraper.\nThe scraper visits Google Maps and returns a list of clinics with their names, phone numbers, addresses and websites.\nThe rest of the workflow takes that list, finds the emails, writes the messages and sends them.\n\n---\n",
+        "height": 672,
+        "width": 1200
+      },
+      "id": "fdb08105-efcd-4e48-ba07-86aab936a2ef",
+      "name": "Sticky Note4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2064,
+        784
+      ]
+    }
+  ],
+  "pinData": {
+    "On form submission": [
+      {
+        "json": {
+          "Business Type": "skin clinic",
+          "Location": "dubai",
+          "Lead Number": 15,
+          "Email Style": "Professional",
+          "submittedAt": "2026-10-28T20:28:53.122+05:30",
+          "formMode": "test"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Website": {
+      "main": [
+        [
+          {
+            "node": "Information Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Information Extractor": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Information Extractor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Information Extractor1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Information Extractor1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Information Extractor1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Fetch Website",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Operation, do nothing": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "f2332cbb-7654-4513-b13d-974585ae2a38",
+  "meta": {
+    "templateId": "7423",
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2171046cc33761c39208a28d21b821c49e8abaa39a36be3228bd8782fb5a2dbf"
+  },
+  "nodeGroups": [
+    {
+      "id": "82fe388f-369c-48b5-b16a-822be7dba46f",
+      "name": "Scrape local leads",
+      "nodeIds": [
+        "2294be1e-b7e7-437a-ba31-322bf4c7065f",
+        "f1cc441c-8138-4038-a5bf-b243f830d2ea"
+      ],
+      "description": "Takes the form search, pulls matching businesses from Google Maps and keeps only those with a website"
+    },
+    {
+      "id": "fcf2805e-33d6-48ad-a36c-b5c4935fc221",
+      "name": "Find contact email",
+      "nodeIds": [
+        "efaf6f5a-2e98-4ffb-84da-232d7c7af7ea",
+        "571cd0ce-4578-4e7a-8a92-647ef4662d3b",
+        "0d5da717-af00-429f-91aa-cf09402341e0",
+        "0a3d98f3-2446-4491-9e86-f97759765b4a"
+      ],
+      "description": "Reads each business website, extracts one contact email, and skips leads where none is found"
+    },
+    {
+      "id": "f9d88d8e-7846-4a66-8a9f-65e7e7a46c00",
+      "name": "Send cold email",
+      "nodeIds": [
+        "db871413-4d1c-4d9f-be82-f5b938baa7b1",
+        "81653f52-a4d4-46be-8f20-a13fca28a13a",
+        "87b79200-12c4-43a9-97c8-72727e73bf11",
+        "e3f168e5-4330-4ee7-ba4e-52df7d58f120"
+      ],
+      "description": "Writes a personalised cold email, sends it via Gmail and logs the lead in the sheet"
+    }
+  ],
+  "id": "blrZdbeiNQigSS4X",
+  "tags": []
+}
